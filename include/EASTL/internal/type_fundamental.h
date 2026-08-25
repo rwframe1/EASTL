@@ -278,12 +278,10 @@ namespace eastl
 		template <typename T>
 		struct is_enum_helper2
 		{
-			EASTL_INTERNAL_DISABLE_DEPRECATED()
-			typedef type_or<is_arithmetic<T>::value, is_reference<T>::value, is_class<T>::value> selector;
+			typedef disjunction<is_arithmetic<T>, is_reference<T>, is_class<T>> selector;
 			typedef is_enum_helper<selector::value> helper_t;
-			typedef typename add_reference<T>::type ref_t;
+			typedef typename add_lvalue_reference<T>::type ref_t;
 			typedef typename helper_t::template nest<ref_t> result;
-			EASTL_INTERNAL_RESTORE_DEPRECATED()
 		};
 
 		template <typename T> 
@@ -299,6 +297,10 @@ namespace eastl
 		template<typename T>
 		EA_CONSTEXPR bool is_enum_v = is_enum<T>::value;
 	#endif
+
+
+
+
 } // namespace eastl
 
 

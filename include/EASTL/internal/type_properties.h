@@ -47,13 +47,13 @@ namespace eastl
 	#endif
 
 	///////////////////////////////////////////////////////////////////////
-	// to_underlying 
+	// to_underlying
 	//
 	// Cast a enum value to its underlying type.
 	// For example:
-	// 
+	//
 	// enum class MyEnum : uint8_t { Value = 0; }
-	// auto x = MyEnum::Value; 
+	// auto x = MyEnum::Value;
 	// std::cout << to_underlying(x); // equivalent to  sts::cout << static_cast<uint8_t>(x);
 	///////////////////////////////////////////////////////////////////////
 
@@ -110,7 +110,7 @@ namespace eastl
 	///////////////////////////////////////////////////////////////////////
 
 	#define EASTL_TYPE_TRAIT_is_signed_CONFORMANCE 1    // is_signed is conforming.
-		
+
 #ifdef _MSC_VER
 	#pragma warning(push)
 	#pragma warning(disable: 4296)  // '<': expression is always false
@@ -132,6 +132,8 @@ namespace eastl
 		EA_CONSTEXPR bool is_signed_v = is_signed<T>::value;
 	#endif
 
+
+
 	///////////////////////////////////////////////////////////////////////
 	// is_unsigned
 	//
@@ -141,7 +143,7 @@ namespace eastl
 	///////////////////////////////////////////////////////////////////////
 
 	#define EASTL_TYPE_TRAIT_is_unsigned_CONFORMANCE 1    // is_unsigned is conforming.
-		
+
 #ifdef _MSC_VER
 	#pragma warning(push)
 	#pragma warning(disable: 4296)  // '<': expression is always false
@@ -237,7 +239,7 @@ namespace eastl
 
     ///////////////////////////////////////////////////////////////////////
 	// is_aligned
-	// 
+	//
 	// Defined as true if the type has alignment requirements greater
 	// than default alignment, which is taken to be 8. This allows for
 	// doing specialized object allocation and placement for such types.
@@ -345,16 +347,6 @@ namespace eastl
 		EA_CONSTEXPR bool is_rvalue_reference_v = is_rvalue_reference<T>::value;
 	#endif
 
-
-	///////////////////////////////////////////////////////////////////////
-	// result_of
-	//
-	// Deprecated in C++17.
-	// 
-	// Use invoke_result instead.
-	// See https://en.cppreference.com/w/cpp/types/result_of#Notes for an explanation of issues with result_of.
-	///////////////////////////////////////////////////////////////////////
-	#define EASTL_TYPE_TRAIT_result_of_CONFORMANCE 1    // result_of is conforming.
 
 	///////////////////////////////////////////////////////////////////////
 	// has_equality

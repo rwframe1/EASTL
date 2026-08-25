@@ -41,7 +41,11 @@
 #include <EASTL/iterator.h>
 #include <EASTL/algorithm.h>
 #include <EASTL/initializer_list.h>
+#include <EASTL/memory.h>
 #include <EASTL/bonus/compressed_pair.h>
+#if EASTL_EXCEPTIONS_ENABLED
+#include <stdexcept>
+#endif
 
 EA_DISABLE_ALL_VC_WARNINGS()
 #include <new>
@@ -130,7 +134,7 @@ namespace eastl
 		typedef ListNode<T>                                 node_type;
 		typedef Pointer                                     pointer;
 		typedef Reference                                   reference;
-		typedef EASTL_ITC_NS::bidirectional_iterator_tag    iterator_category;
+		typedef eastl::bidirectional_iterator_tag    iterator_category;
 
 	public:
 		base_node_type* mpNode;
@@ -138,7 +142,13 @@ namespace eastl
 	public:
 		ListIterator() EA_NOEXCEPT;
 		ListIterator(const ListNodeBase* pNode) EA_NOEXCEPT;
-		ListIterator(const iterator& x) EA_NOEXCEPT;
+
+		template <typename This = this_type, enable_if_t<!is_same_v<This, iterator>, bool> = true>
+		inline ListIterator(const iterator& x) EA_NOEXCEPT
+			: mpNode(x.mpNode)
+		{
+			// Empty
+		}
 
 		this_type next() const EA_NOEXCEPT;
 		this_type prev() const EA_NOEXCEPT;
@@ -266,6 +276,9 @@ namespace eastl
 
 		using base_type::get_allocator;
 
+		static_assert(!is_const<value_type>::value, "vector<T> value_type must be non-const.");
+		static_assert(!is_volatile<value_type>::value, "vector<T> value_type must be non-volatile.");
+
 	public:
 		list();
 		list(const allocator_type& allocator);
@@ -324,10 +337,10 @@ namespace eastl
 		const_reference back() const;
 
 		template <typename... Args>
-		void emplace_front(Args&&... args);
+		reference emplace_front(Args&&... args);
 
 		template <typename... Args>
-		void emplace_back(Args&&... args);
+		reference emplace_back(Args&&... args);
 
 		void      push_front(const value_type& value);
 		void      push_front(value_type&& x);
@@ -392,10 +405,10 @@ namespace eastl
 		template <typename Compare>
 		void merge(this_type&& x, Compare compare);
 
-		void unique();
+		size_type unique();
 
 		template <typename BinaryPredicate>
-		void unique(BinaryPredicate);
+		size_type unique(BinaryPredicate);
 
 		// Sorting functionality
 		// This is independent of the global sort algorithms, as lists are 
@@ -564,14 +577,6 @@ namespace eastl
 
 
 	template <typename T, typename Pointer, typename Reference>
-	inline ListIterator<T, Pointer, Reference>::ListIterator(const iterator& x) EA_NOEXCEPT
-		: mpNode(const_cast<base_node_type*>(x.mpNode))
-	{
-		// Empty
-	} 
-
-
-	template <typename T, typename Pointer, typename Reference>
 	inline typename ListIterator<T, Pointer, Reference>::this_type
 	ListIterator<T, Pointer, Reference>::next() const EA_NOEXCEPT
 	{
@@ -722,7 +727,8 @@ namespace eastl
 	template <typename T, typename Allocator>
 	inline void ListBase<T, Allocator>::set_allocator(const allocator_type& allocator)
 	{
-		EASTL_ASSERT((internalAllocator() == allocator) || (static_cast<node_type*>(internalNode().mpNext) == &internalNode())); // We can only assign a different allocator if we are empty of elements.
+		if((internalAllocator() != allocator) && (static_cast<node_type*>(internalNode().mpNext) != &internalNode()))
+			EASTL_THROW_MSG_OR_ASSERT(std::logic_error, "list::set_allocator -- cannot change allocator after allocations have been made.");
 		internalAllocator() = allocator;
 	}
 
@@ -1178,16 +1184,18 @@ namespace eastl
 
 	template <typename T, typename Allocator>
 	template <typename... Args>
-	void list<T, Allocator>::emplace_front(Args&&... args)
+	typename list<T, Allocator>::reference list<T, Allocator>::emplace_front(Args&&... args)
 	{
 		DoInsertValue(internalNode().mpNext, eastl::forward<Args>(args)...);
+		return static_cast<node_type*>(internalNode().mpNext)->mValue; // Same as return front();
 	}
 
 	template <typename T, typename Allocator>
 	template <typename... Args>
-	void list<T, Allocator>::emplace_back(Args&&... args)
+	typename list<T, Allocator>::reference list<T, Allocator>::emplace_back(Args&&... args)
 	{
 		DoInsertValue(&internalNode(), eastl::forward<Args>(args)...);
+		return static_cast<node_type*>(internalNode().mpPrev)->mValue; // Same as return back();
 	}
 
 
@@ -1568,6 +1576,8 @@ namespace eastl
 	}
 
 
+	// does not propagate allocators on swap.
+	// in addition, requires T be copy constructible and copy assignable, which isn't required by the standard.
 	template <typename T, typename Allocator>
 	inline void list<T, Allocator>::swap(this_type& x)
 	{
@@ -1657,8 +1667,9 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	void list<T, Allocator>::unique()
+	typename list<T, Allocator>::size_type list<T, Allocator>::unique()
 	{
+		size_type      numRemoved = 0;
 		iterator       first(begin());
 		const iterator last(end());
 
@@ -1668,20 +1679,28 @@ namespace eastl
 
 			while(++next != last)
 			{
-				if(*first == *next)
+				if (*first == *next)
+				{
 					DoErase(next.mpNode);
+					++numRemoved;
+					next = first;
+				}
 				else
+				{
 					first = next;
-				next = first;
+				}
 			}
 		}
+
+		return numRemoved;
 	}
 
 
 	template <typename T, typename Allocator>
 	template <typename BinaryPredicate>
-	void list<T, Allocator>::unique(BinaryPredicate predicate)
+	typename list<T, Allocator>::size_type list<T, Allocator>::unique(BinaryPredicate predicate)
 	{
+		size_type      numRemoved = 0;
 		iterator       first(begin());
 		const iterator last(end());
 
@@ -1691,13 +1710,20 @@ namespace eastl
 
 			while(++next != last)
 			{
-				if(predicate(*first, *next))
+				if (predicate(*first, *next))
+				{
 					DoErase(next.mpNode);
+					++numRemoved;
+					next = first;
+				}
 				else
+				{
 					first = next;
-				next = first;
+				}
 			}
 		}
+
+		return numRemoved;
 	}
 
 
@@ -1838,7 +1864,7 @@ namespace eastl
 		#if EASTL_EXCEPTIONS_ENABLED
 			try
 			{
-				::new((void*)&pNode->mValue) value_type(eastl::forward<Args>(args)...);
+				detail::allocator_construct(internalAllocator(), &pNode->mValue, eastl::forward<Args>(args)...);
 			}
 			catch(...)
 			{
@@ -1846,7 +1872,7 @@ namespace eastl
 				throw;
 			}
 		#else
-			::new((void*)&pNode->mValue) value_type(eastl::forward<Args>(args)...);
+			detail::allocator_construct(internalAllocator(), &pNode->mValue, eastl::forward<Args>(args)...);
 		#endif
 
 		return pNode;
@@ -1862,7 +1888,7 @@ namespace eastl
 		#if EASTL_EXCEPTIONS_ENABLED
 			try
 			{
-				::new((void*)&pNode->mValue) value_type();
+				detail::allocator_construct(internalAllocator(), &pNode->mValue);
 			}
 			catch(...)
 			{
@@ -1870,7 +1896,12 @@ namespace eastl
 				throw;
 			}
 		#else
+#if EA_IS_ENABLED(EA_DEPRECATIONS_FOR_2025_OCT)
+			detail::allocator_construct(internalAllocator(), &pNode->mValue);
+#else
+			// deprecated: this is default initialization, but should be value initialization.
 			::new((void*)&pNode->mValue) value_type;
+#endif
 		#endif
 
 		return pNode;

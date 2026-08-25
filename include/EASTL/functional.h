@@ -12,12 +12,15 @@
 #include <EASTL/type_traits.h>
 #include <EASTL/internal/functional_base.h>
 #include <EASTL/internal/mem_fn.h>
+#include <EASTL/bit.h>
 
 
 #if defined(EA_PRAGMA_ONCE_SUPPORTED)
 	#pragma once // Some compilers (e.g. VC++) benefit significantly from using this. We've measured 3-4% build speed improvements in apps as a result.
 #endif
 
+// 4512/4626 - 'class' : assignment operator could not be generated.  // This disabling would best be put elsewhere.
+EA_DISABLE_VC_WARNING(4512 4626);
 
 
 namespace eastl
@@ -225,6 +228,7 @@ namespace eastl
 	template <>
 	struct greater<void>
 	{
+		typedef int is_transparent;
 		template<typename A, typename B>
 		EA_CPP14_CONSTEXPR auto operator()(A&& a, B&& b) const
 			-> decltype(eastl::forward<A>(a) > eastl::forward<B>(b))
@@ -297,6 +301,7 @@ namespace eastl
 	template <>
 	struct greater_equal<void>
 	{
+		typedef int is_transparent;
 		template<typename A, typename B>
 		EA_CPP14_CONSTEXPR auto operator()(A&& a, B&& b) const
 			-> decltype(eastl::forward<A>(a) >= eastl::forward<B>(b))
@@ -320,6 +325,7 @@ namespace eastl
 	template <>
 	struct less_equal<void>
 	{
+		typedef int is_transparent;
 		template<typename A, typename B>
 		EA_CPP14_CONSTEXPR auto operator()(A&& a, B&& b) const
 			-> decltype(eastl::forward<A>(a) <= eastl::forward<B>(b))
@@ -332,6 +338,8 @@ namespace eastl
 		return !compare(a, b) || !compare(b, a); // If (a <= b), then !(b <= a)
 	}
 
+	// todo: when C++20 support added, add a compare_three_way function object.
+
 	template <typename T = void>
 	struct logical_and
 	{
@@ -343,6 +351,7 @@ namespace eastl
 	template <>
 	struct logical_and<void>
 	{
+		typedef int is_transparent;
 		template<typename A, typename B>
 		EA_CPP14_CONSTEXPR auto operator()(A&& a, B&& b) const
 			-> decltype(eastl::forward<A>(a) && eastl::forward<B>(b))
@@ -360,6 +369,7 @@ namespace eastl
 	template <>
 	struct logical_or<void>
 	{
+		typedef int is_transparent;
 		template<typename A, typename B>
 		EA_CPP14_CONSTEXPR auto operator()(A&& a, B&& b) const
 			-> decltype(eastl::forward<A>(a) || eastl::forward<B>(b))
@@ -377,11 +387,110 @@ namespace eastl
 	template <>
 	struct logical_not<void>
 	{
+		typedef int is_transparent;
 		template<typename T>
 		EA_CPP14_CONSTEXPR auto operator()(T&& t) const
 			-> decltype(!eastl::forward<T>(t))
 			{ return !eastl::forward<T>(t); }
 	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_and
+	template <typename T = void>
+	struct bit_and
+	{
+		EA_CPP14_CONSTEXPR T operator()(const T& a, const T& b) const
+		{
+			return a & b;
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_and_void
+	template <>
+	struct bit_and<void>
+	{
+		typedef int is_transparent;
+
+		template<typename T, typename U>
+		EA_CPP14_CONSTEXPR auto operator()(T&& a, U&& b) const
+			-> decltype(eastl::forward<T>(a) & eastl::forward<U>(b))
+		{
+			return eastl::forward<T>(a) & eastl::forward<U>(b);
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_or
+	template <typename T = void>
+	struct bit_or
+	{
+		EA_CPP14_CONSTEXPR T operator()(const T& a, const T& b) const
+		{
+			return a | b;
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_or_void
+	template <>
+	struct bit_or<void>
+	{
+		typedef int is_transparent;
+
+		template<typename T, typename U>
+		EA_CPP14_CONSTEXPR auto operator()(T&& a, U&& b) const
+			-> decltype(eastl::forward<T>(a) | eastl::forward<U>(b))
+		{
+			return eastl::forward<T>(a) | eastl::forward<U>(b);
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_xor
+	template <typename T = void>
+	struct bit_xor
+	{
+		EA_CPP14_CONSTEXPR T operator()(const T& a, const T& b) const
+		{
+			return a ^ b;
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_xor_void
+	template <>
+	struct bit_xor<void>
+	{
+		typedef int is_transparent;
+
+		template<typename T, typename U>
+		EA_CPP14_CONSTEXPR auto operator()(T&& a, U&& b) const
+			-> decltype(eastl::forward<T>(a) ^ eastl::forward<U>(b))
+		{
+			return eastl::forward<T>(a) ^ eastl::forward<U>(b);
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_not
+	template <typename T = void>
+	struct bit_not
+	{
+		EA_CPP14_CONSTEXPR T operator()(const T& a) const
+		{
+			return ~a;
+		}
+	};
+
+	// http://en.cppreference.com/w/cpp/utility/functional/bit_not_void
+	template <>
+	struct bit_not<void>
+	{
+		typedef int is_transparent;
+
+		template<typename T>
+		EA_CPP14_CONSTEXPR auto operator()(T&& t) const
+			-> decltype(~eastl::forward<T>(t))
+		{
+			return ~eastl::forward<T>(t);
+		}
+	};
+
+	// todo: add identity function object
 
 	// not_fn_ret
 	// not_fn_ret is a implementation specified return type of eastl::not_fn.
@@ -523,14 +632,30 @@ namespace eastl
 	template <> struct hash<unsigned long long>
 		{ size_t operator()(unsigned long long val) const { return static_cast<size_t>(val); } };
 
+	namespace internal
+	{
+		using size_t_sized_floating_point_type = eastl::conditional_t<sizeof(size_t) == sizeof(double), double, float>;
+
+		template <typename T>
+		size_t floating_point_hash(T val)
+		{
+			if (val == -0.0)
+			{
+				return eastl::bit_cast<size_t>(static_cast<internal::size_t_sized_floating_point_type>(0.0));
+			}
+
+			return eastl::bit_cast<size_t>(static_cast<internal::size_t_sized_floating_point_type>(val));
+		}
+	}
+
 	template <> struct hash<float>
-		{ size_t operator()(float val) const { return static_cast<size_t>(val); } };
+		{ size_t operator()(float val) const { return internal::floating_point_hash(val); } };
 
 	template <> struct hash<double>
-		{ size_t operator()(double val) const { return static_cast<size_t>(val); } };
+		{ size_t operator()(double val) const { return internal::floating_point_hash(val); } };
 
 	template <> struct hash<long double>
-		{ size_t operator()(long double val) const { return static_cast<size_t>(val); } };
+		{ size_t operator()(long double val) const { return internal::floating_point_hash(val); } };
 
 	#if defined(EA_HAVE_INT128) && EA_HAVE_INT128
 	template <> struct hash<uint128_t>
@@ -693,6 +818,8 @@ namespace eastl
 } // namespace eastl
 
 #include <EASTL/internal/function.h>
+
+EA_RESTORE_VC_WARNING();
 
 #endif // Header include guard
 

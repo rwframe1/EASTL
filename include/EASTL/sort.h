@@ -44,6 +44,7 @@
 
 #include <EASTL/internal/config.h>
 #include <EASTL/internal/move_help.h>
+#include <EASTL/bit.h>
 #include <EASTL/iterator.h>
 #include <EASTL/memory.h>
 #include <EASTL/algorithm.h>
@@ -294,25 +295,41 @@ namespace eastl
 			while(nSpace < nSize)
 				nSpace = (nSpace * 3) + 1; // This is the Knuth 'h' sequence: 1, 4, 13, 40, 121, 364, 1093, 3280, 9841, 29524, 88573, 265720, 797161, 2391484, 7174453, 21523360, 64570081, 193710244, 
 
+			// nSpace will iterate from the largest Knuth 'h' element smaller than the size of the range down to 1 (inclusive).
 			for(nSpace = (nSpace - 1) / 3; nSpace >= 1; nSpace = (nSpace - 1) / 3)  // Integer division is less than ideal.
 			{
 				for(difference_type i = 0; i < nSpace; i++)
 				{
-					const RandomAccessIterator iInsertFirst = first + i;
+					const RandomAccessIterator iInsertFirst = first + i; // range: [first, first + nSpace)
+
+					// After completion of this next loop the elements
+					//   iInsertFirst + K * nSpace
+					// for K = [0, 1, 2, ...) form a sorted range.
+					// This loop is essentially an insertion sort.
 
 					// Note: we can only move the iterator forward if we know we won't overrun the
-					// end(), otherwise we can invoke undefined behaviour.  So we need to check we
+					// end(), otherwise we can invoke undefined behaviour. So we need to check we
 					// have enough space before moving the iterator.
 					RandomAccessIterator iSorted = iInsertFirst;
 					while(distance(iSorted, last) > nSpace)
 					{
+						RandomAccessIterator iLeft = iSorted;
 						iSorted += nSpace;
+						RandomAccessIterator iRight = iSorted;
 
-						RandomAccessIterator iCurrent = iSorted;
-						for(RandomAccessIterator iBack = iSorted - nSpace; (iCurrent != iInsertFirst) && compare(*iCurrent, *iBack); iCurrent = iBack, iBack -= nSpace)
+						// the elements (with distance nSpace) prior to iRight are sorted.
+						// move iRight into its sorted position.
+						while(compare(*iRight, *iLeft))
 						{
-							EASTL_VALIDATE_COMPARE(!compare(*iBack, *iCurrent)); // Validate that the compare function is sane.
-							eastl::iter_swap(iCurrent, iBack);
+							EASTL_VALIDATE_COMPARE(!compare(*iLeft, *iRight)); // Validate that the compare function is sane.
+
+							eastl::iter_swap(iRight, iLeft);
+
+							if (iLeft == iInsertFirst) // don't iterate iLeft past the valid range.
+								break;
+
+							iRight = iLeft;
+							iLeft -= nSpace;
 						}
 					}
 				}
@@ -1099,56 +1116,6 @@ namespace eastl
 		};
 
 
-		// EASTL_COUNT_LEADING_ZEROES
-		//
-		// Count leading zeroes in an integer.
-		//
-		#ifndef EASTL_COUNT_LEADING_ZEROES
-			#if   defined(__GNUC__)
-				#if (EA_PLATFORM_PTR_SIZE == 8)
-					#define EASTL_COUNT_LEADING_ZEROES __builtin_clzll
-				#else
-					#define EASTL_COUNT_LEADING_ZEROES __builtin_clz
-				#endif
-			#endif
-
-			#ifndef EASTL_COUNT_LEADING_ZEROES
-				static inline int eastl_count_leading_zeroes(uint64_t x)
-				{
-					if(x)
-					{
-						int n = 0;
-						if(x & UINT64_C(0xFFFFFFFF00000000)) { n += 32; x >>= 32; }
-						if(x & 0xFFFF0000)                   { n += 16; x >>= 16; }
-						if(x & 0xFFFFFF00)                   { n +=  8; x >>=  8; }
-						if(x & 0xFFFFFFF0)                   { n +=  4; x >>=  4; }
-						if(x & 0xFFFFFFFC)                   { n +=  2; x >>=  2; }
-						if(x & 0xFFFFFFFE)                   { n +=  1;           }
-						return 63 - n;
-					}
-					return 64;
-				}
-
-				static inline int eastl_count_leading_zeroes(uint32_t x)
-				{
-					if(x)
-					{
-						int n = 0;
-						if(x <= 0x0000FFFF) { n += 16; x <<= 16; }
-						if(x <= 0x00FFFFFF) { n +=  8; x <<=  8; }
-						if(x <= 0x0FFFFFFF) { n +=  4; x <<=  4; }
-						if(x <= 0x3FFFFFFF) { n +=  2; x <<=  2; }
-						if(x <= 0x7FFFFFFF) { n +=  1;           }
-						return n;
-					}
-					return 32;
-				}
-
-				#define EASTL_COUNT_LEADING_ZEROES eastl_count_leading_zeroes
-			#endif
-		#endif
-
-
 		// reverse_elements
 		//
 		// Reverses the range [first + start, first + start + size)
@@ -1238,7 +1205,7 @@ namespace eastl
 		//
 		static inline intptr_t timsort_compute_minrun(intptr_t size)
 		{
-			const int32_t  top_bit = (int32_t)((sizeof(intptr_t) * 8) - EASTL_COUNT_LEADING_ZEROES((uintptr_t)size));
+			const int32_t  top_bit = (int32_t)((sizeof(intptr_t) * 8) - countl_zero((uintptr_t)size));
 			const int32_t  shift   = (top_bit > 6) ? (top_bit - 6) : 0;
 			const intptr_t mask    = (intptr_t(1) << shift) - 1;
 				  intptr_t minrun  = (intptr_t)(size >> shift);
@@ -1825,7 +1792,7 @@ namespace eastl
 	namespace Internal
 	{
 		template <typename ForwardIterator, typename StrictWeakOrdering>
-		void bubble_sort_impl(ForwardIterator first, ForwardIterator last, StrictWeakOrdering compare, EASTL_ITC_NS::forward_iterator_tag)
+		void bubble_sort_impl(ForwardIterator first, ForwardIterator last, StrictWeakOrdering compare, eastl::forward_iterator_tag)
 		{
 			ForwardIterator iCurrent, iNext;
 
@@ -1846,7 +1813,7 @@ namespace eastl
 		}
 
 		template <typename BidirectionalIterator, typename StrictWeakOrdering>
-		void bubble_sort_impl(BidirectionalIterator first, BidirectionalIterator last, StrictWeakOrdering compare, EASTL_ITC_NS::bidirectional_iterator_tag)
+		void bubble_sort_impl(BidirectionalIterator first, BidirectionalIterator last, StrictWeakOrdering compare, eastl::bidirectional_iterator_tag)
 		{
 			if(first != last)
 			{

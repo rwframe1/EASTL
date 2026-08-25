@@ -29,6 +29,9 @@
 	EA_RESTORE_ALL_VC_WARNINGS()
 #endif
 
+// 4512/4626 - 'class' : assignment operator could not be generated.  // This disabling would best be put elsewhere.
+EA_DISABLE_VC_WARNING(4512 4626);
+
 #if defined(EA_PRAGMA_ONCE_SUPPORTED)
 	#pragma once // Some compilers (e.g. VC++) benefit significantly from using this. We've measured 3-4% build speed improvements in apps as a result.
 #endif
@@ -55,7 +58,11 @@ namespace eastl
 	///    for(array<int, 5>::iterator i = a.begin(); i < a.end(); ++i)
 	///       *i = 0;
 	///
+#if EA_IS_ENABLED(EA_DEPRECATIONS_FOR_2025_OCT)
+	template <typename T, size_t N>
+#else
 	template <typename T, size_t N = 1>
+#endif
 	struct array
 	{
 	public:
@@ -142,11 +149,11 @@ namespace eastl
 
 		// We intentionally provide no constructor, destructor, or assignment operator.
 
-		void fill(const value_type& value) {}
+		void fill(const value_type&) {}
 
 		// Unlike the swap function for other containers, array::swap takes linear time,
 		// may exit via an exception, and does not cause iterators to become associated with the other container.
-		void swap(this_type& x) EA_NOEXCEPT {}
+		void swap(this_type&) EA_NOEXCEPT {}
 
 		EA_CPP14_CONSTEXPR iterator       begin() EA_NOEXCEPT { return nullptr; }
 		EA_CPP14_CONSTEXPR const_iterator begin() const EA_NOEXCEPT { return nullptr; }
@@ -171,9 +178,11 @@ namespace eastl
 		EA_CPP14_CONSTEXPR T* data() EA_NOEXCEPT { return nullptr; }
 		EA_CPP14_CONSTEXPR const T* data() const EA_NOEXCEPT { return nullptr; }
 
-		EA_CPP14_CONSTEXPR reference       operator[](size_type i) { return *data(); }
-		EA_CPP14_CONSTEXPR const_reference operator[](size_type i) const { return *data(); }
-		EA_CPP14_CONSTEXPR const_reference at(size_type i) const
+		EA_CPP14_CONSTEXPR reference       operator[](size_type) { return *data(); }
+		EA_CPP14_CONSTEXPR const_reference operator[](size_type) const { return *data(); }
+
+		EA_DISABLE_VC_WARNING(4702); // unreachable code
+		EA_CPP14_CONSTEXPR const_reference at(size_type) const
 		{
 #if EASTL_EXCEPTIONS_ENABLED
 			throw std::out_of_range("array::at -- out of range");
@@ -182,7 +191,10 @@ namespace eastl
 #endif
 			return *data();
 		}
-		EA_CPP14_CONSTEXPR reference       at(size_type i)
+		EA_RESTORE_VC_WARNING();
+
+		EA_DISABLE_VC_WARNING(4702); // unreachable code
+		EA_CPP14_CONSTEXPR reference       at(size_type)
 		{
 #if EASTL_EXCEPTIONS_ENABLED
 			throw std::out_of_range("array::at -- out of range");
@@ -191,6 +203,7 @@ namespace eastl
 #endif
 			return *data();
 		}
+		EA_RESTORE_VC_WARNING();
 
 		EA_CPP14_CONSTEXPR reference       front() { return *data(); }
 		EA_CPP14_CONSTEXPR const_reference front() const { return *data(); }
@@ -199,7 +212,7 @@ namespace eastl
 		EA_CPP14_CONSTEXPR const_reference back() const { return *data(); }
 
 		bool validate() const { return true; }
-		int  validate_iterator(const_iterator i) const { return isf_none; }
+		int  validate_iterator(const_iterator) const { return isf_none; }
 
 	}; // class array
 
@@ -355,6 +368,15 @@ namespace eastl
 	EA_CPP14_CONSTEXPR inline typename array<T, N>::reference
 	array<T, N>::operator[](size_type i)
 	{
+		#if EASTL_ASSERT_ENABLED && EASTL_EMPTY_REFERENCE_ASSERT_ENABLED
+			if (EASTL_UNLIKELY(i >= N))
+				EASTL_FAIL_MSG("array::operator[] -- out of range");
+		#elif EASTL_ASSERT_ENABLED
+			// We allow taking a reference to arr[0]
+			if (EASTL_UNLIKELY((i != 0) && i >= N))
+				EASTL_FAIL_MSG("array::operator[] -- out of range");
+		#endif
+
 		return mValue[i];
 	}
 
@@ -363,6 +385,15 @@ namespace eastl
 	EA_CPP14_CONSTEXPR inline typename array<T, N>::const_reference
 	array<T, N>::operator[](size_type i) const
 	{
+		#if EASTL_ASSERT_ENABLED && EASTL_EMPTY_REFERENCE_ASSERT_ENABLED
+			if (EASTL_UNLIKELY(i >= N))
+				EASTL_FAIL_MSG("array::operator[] -- out of range");
+		#elif EASTL_ASSERT_ENABLED
+			// We allow taking a reference to arr[0]
+			if (EASTL_UNLIKELY((i != 0) && i >= N))
+				EASTL_FAIL_MSG("array::operator[] -- out of range");
+		#endif
+
 		return mValue[i];
 	}
 
@@ -600,7 +631,7 @@ namespace eastl
 	///////////////////////////////////////////////////////////////////////
 
 	template<typename T, size_t N>
-	struct tuple_size<array<T, N>> : public integral_constant<size_t, N> {};
+	struct tuple_size<array<T, N>> : public eastl::integral_constant<size_t, N> {};
 
 	namespace internal {
 	template<size_t I, typename T, size_t N, typename = void>
@@ -631,13 +662,15 @@ namespace std
 {
 
 template<typename T, size_t N>
-struct tuple_size<eastl::array<T, N>> : public integral_constant<size_t, N> {};
+struct tuple_size<eastl::array<T, N>> : public eastl::integral_constant<size_t, N> {};
 
 template<size_t I, typename T, size_t N>
 struct tuple_element<I, eastl::array<T, N>> : public eastl::tuple_element<I, eastl::array<T, N>> {};
 }
 #endif
 
+
+EA_RESTORE_VC_WARNING();
 
 #endif // Header include guard
 
