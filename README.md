@@ -1,5 +1,8 @@
 # EA Standard Template Library
 
+> [!WARNING]  
+> This fork may be unstable! Use at your own risk!
+
 EASTL stands for Electronic Arts Standard Template Library. It is a C++ template library of containers, algorithms, and iterators useful for runtime and tool development across multiple platforms. It is a fairly extensive and robust implementation of such a library and has an emphasis on high performance above all other considerations.
 
 ### Documentation
