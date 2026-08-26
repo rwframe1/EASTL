@@ -195,6 +195,9 @@ namespace eastl
 
 	namespace eastl
 	{
+		// Allocator constructors and assignment operator
+		// Definitions are provided in allocator_eastl.cpp to avoid inline issues
+		#if 0
 		inline allocator::allocator(const char* EASTL_NAME(pName))
 		{
 			#if EASTL_NAME_ENABLED
@@ -226,6 +229,7 @@ namespace eastl
 			#endif
 			return *this;
 		}
+		#endif
 
 
 		inline const char* allocator::get_name() const

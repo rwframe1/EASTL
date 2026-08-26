@@ -38,6 +38,35 @@
 			gpDefaultAllocator = pAllocator;
 			return pPrevAllocator;
 		}
+		
+		allocator::allocator(const char* EASTL_NAME(pName))
+		{
+			#if EASTL_NAME_ENABLED
+				mpName = pName ? pName : EASTL_ALLOCATOR_DEFAULT_NAME;
+			#endif
+		}
+
+		allocator::allocator(const allocator& EASTL_NAME(alloc))
+		{
+			#if EASTL_NAME_ENABLED
+				mpName = alloc.mpName;
+			#endif
+		}
+
+		allocator::allocator(const allocator&, const char* EASTL_NAME(pName))
+		{
+			#if EASTL_NAME_ENABLED
+				mpName = pName ? pName : EASTL_ALLOCATOR_DEFAULT_NAME;
+			#endif
+		}
+
+		allocator& allocator::operator=(const allocator& EASTL_NAME(alloc))
+		{
+			#if EASTL_NAME_ENABLED
+				mpName = alloc.mpName;
+			#endif
+			return *this;
+		}
 
 	} // namespace eastl
 
