@@ -4,19 +4,10 @@
 
 #include <EASTL/allocator.h>
 #include <EASTL/internal/config.h>
-#ifdef EASTL_MIMALLOC_ENABLED
 #include <mimalloc.h>
-#endif
-#if !defined(EASTL_MIMALLOC_ENABLED) || !defined(EASTL_CUSTOM_MALLOC_ENABLED)
 #include <cstdlib>
-#endif
 namespace eastl
 {
-#ifdef _WIN32
-#define EASTL_ALIGNED_ALLOC(align, size) _aligned_malloc(size, align)
-#else
-#define EASTL_ALIGNED_ALLOC(align, size) ::aligned_alloc(align, size)
-#endif
 	allocator::allocator(const char* EASTL_NAME(pName))
 	{
 #if EASTL_NAME_ENABLED
@@ -116,11 +107,7 @@ namespace eastl
 #ifdef EASTL_CUSTOM_MALLOC_ENABLED
 		return detail::_custom_realloc(originPtr, n);
 #else
-#ifdef EASTL_MIMALLOC_ENABLED
 		return mi_realloc(originPtr, n);
-#else
-		return std::realloc(originPtr, n);
-#endif
 #endif
 	}
 
@@ -129,11 +116,7 @@ namespace eastl
 #ifdef EASTL_CUSTOM_MALLOC_ENABLED
 		return detail::_custom_malloc(n);
 #else
-#ifdef EASTL_MIMALLOC_ENABLED
 		return mi_malloc(n);
-#else
-		return std::malloc(n);
-#endif
 #endif
 	}
 
@@ -148,11 +131,7 @@ namespace eastl
 #ifdef EASTL_CUSTOM_MALLOC_ENABLED
 		return detail::_custom_aligned_malloc(alignment, n);
 #else
-#ifdef EASTL_MIMALLOC_ENABLED
 		return mi_aligned_alloc(alignment, n);
-#else
-		return EASTL_ALIGNED_ALLOC(alignment, n);
-#endif
 #endif
 	}
 
@@ -162,11 +141,7 @@ namespace eastl
 #ifdef EASTL_CUSTOM_MALLOC_ENABLED
 		detail::_custom_free(p);
 #else
-#ifdef EASTL_MIMALLOC_ENABLED
 		mi_free(p);
-#else
-		std::free(p);
-#endif
 #endif
 	}
 
