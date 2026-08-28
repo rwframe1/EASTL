@@ -39,7 +39,9 @@ Significant EASTL contributions were made by (in alphabetical order):
 
 * Frostbite - Electronic Arts - [https://www.ea.com/frostbite]
 * FrameNull Engine by [mxtherfxcker](https://github.com/mxtherfxcker)
-#
+
+---
+
 ### License
 
 Modified BSD License (3-Clause BSD license) see the file LICENSE in the project root.
