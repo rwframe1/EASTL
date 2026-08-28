@@ -64,22 +64,7 @@ namespace eastl
 		const char* get_name() const;
 		void        set_name(const char* pName);
 
-		// LuisaGroup custom allocator support
 		void* reallocate(void* p, size_t n);
-		
-		struct CustomAlloc
-		{
-			void* (*custom_malloc)(size_t);
-			void* (*custom_aligned_malloc)(size_t, size_t);
-			void (*custom_free)(void*);
-			void* (*custom_realloc)(void*, size_t);
-		};
-		
-		static void set_custom_malloc(void* (*custom_malloc)(size_t),
-		                             void* (*custom_aligned_malloc)(size_t, size_t),
-		                             void (*custom_free)(void*),
-		                             void* (*custom_realloc)(void*, size_t));
-		static CustomAlloc get_custom_malloc();
 
 	protected:
 		#if EASTL_NAME_ENABLED

@@ -84,7 +84,6 @@ if (EASTL_ENABLE_MIMALLOC)
     else()
         message(FATAL_ERROR "EASTL_ENABLE_MIMALLOC is ON but no mimalloc target was found. Please include mimalloc before EASTL.")
     endif()
-    target_compile_definitions(EASTL-interface INTERFACE EASTL_MIMALLOC_ENABLED=1)
 endif()
 
 #-------------------------------------------------------------------------------------------
@@ -100,10 +99,6 @@ if (EASTL_BUILD_STATIC)
     target_link_libraries(EASTL-static PUBLIC EASTL-interface)
     target_compile_definitions(EASTL-static PRIVATE EASTL_PROJECT=1)
 
-    if (MSVC)
-        target_link_options(EASTL-static PRIVATE "/DISALLOWLIB:libcmt.lib" "/DISALLOWLIB:libcmtd.lib")
-    endif()
-    
     if (EASTL_ENABLE_MIMALLOC)
         target_link_libraries(EASTL-static PUBLIC ${EASTL_MIMALLOC_TARGET})
     endif()
@@ -129,10 +124,6 @@ if (EASTL_BUILD_SHARED)
     target_link_libraries(EASTL-shared PUBLIC EASTL-interface)
     target_compile_definitions(EASTL-shared PRIVATE EASTL_PROJECT=1)
 
-    if (MSVC)
-        target_link_options(EASTL-shared PRIVATE "/DISALLOWLIB:libcmt.lib" "/DISALLOWLIB:libcmtd.lib")
-    endif()
-    
     if (EASTL_ENABLE_MIMALLOC)
         target_link_libraries(EASTL-shared PUBLIC ${EASTL_MIMALLOC_TARGET})
     endif()
