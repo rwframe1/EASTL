@@ -255,10 +255,6 @@
 
 EA_DISABLE_ALL_VC_WARNINGS();
 
-	#if defined(EA_COMPILER_MSVC) && (defined(EA_PROCESSOR_X86) || defined(EA_PROCESSOR_X86_64))
-		#include <intrin.h>
-	#endif
-
 	#include <stddef.h>
 	#include <string.h> // memcpy, memcmp, memmove
 
@@ -4084,12 +4080,10 @@ namespace eastl
 		template<typename ForwardIterator>
 		ForwardIterator rotate_general_impl(ForwardIterator first, ForwardIterator middle, ForwardIterator last)
 		{
-			using eastl::swap;
-
 			ForwardIterator current = middle;
 
 			do {
-				swap(*first++, *current++);
+				eastl::swap(*first++, *current++);
 
 				if(first == middle)
 					middle = current;
@@ -4100,7 +4094,7 @@ namespace eastl
 
 			while(current != last)
 			{
-				swap(*first++, *current++);
+				eastl::swap(*first++, *current++);
 
 				if(first == middle)
 					middle = current;

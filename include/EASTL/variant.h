@@ -955,9 +955,7 @@ namespace eastl
 				auto genericVisitor = [&other](auto& thisAlternative)
 				{
 					using alternative_t = remove_reference_t<decltype(thisAlternative)>;
-
-					using eastl::swap;
-					swap(thisAlternative, *other.template get_as<alternative_t*>());
+					eastl::swap(thisAlternative, *other.template get_as<alternative_t*>());
 				};
 
 				visit(genericVisitor, *this);

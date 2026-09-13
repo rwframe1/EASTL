@@ -26,7 +26,7 @@
 
 
 // TODO:  move to platform specific cpp or header file
-#if  defined EA_PLATFORM_MICROSOFT
+#if defined(EA_PLATFORM_MICROSOFT) && !defined(EA_PLATFORM_WINDOWS_KERNEL)
 	EA_DISABLE_ALL_VC_WARNINGS()
 
 	#ifndef WIN32_LEAN_AND_MEAN
@@ -48,7 +48,9 @@
 	EA_RESTORE_ALL_VC_WARNINGS()
 #endif
 
-#if defined(EA_PLATFORM_MICROSOFT) && !defined(EA_PLATFORM_MINGW)
+#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+	#include <Wdm.h>
+#elif defined(EA_PLATFORM_MICROSOFT) && !defined(EA_PLATFORM_MINGW)  
 	// Nothing to do
 #elif defined(EA_PLATFORM_SONY)
 	#include <Dinkum/threads/xtimec.h>
@@ -327,7 +329,12 @@ namespace chrono
 	}
 
 	template <typename Rep1, typename Period1, typename Rep2>
-	duration<typename eastl::common_type<Rep1, Rep2>::type, Period1> EASTL_FORCE_INLINE
+		duration<
+		typename eastl::common_type<
+			Rep1,
+			typename eastl::enable_if<!Internal::IsDuration<Rep2>::value, Rep2>::type
+		>::type,
+		Period1> EASTL_FORCE_INLINE
 	operator/(const duration<Rep1, Period1>& lhs, const Rep2& rhs)
 	{
 		typedef duration<typename eastl::common_type<Rep1, Rep2>::type, Period1> common_duration_t;
@@ -335,15 +342,20 @@ namespace chrono
 	}
 
 	template <typename Rep1, typename Period1, typename Rep2, typename Period2>
-	typename eastl::common_type<duration<Rep1, Period1>, duration<Rep2, Period2>>::type EASTL_FORCE_INLINE
+	typename eastl::common_type<Rep1, Rep2>::type EASTL_FORCE_INLINE
 	operator/(const duration<Rep1, Period1>& lhs, const duration<Rep2, Period2>& rhs)
 	{
 		typedef typename eastl::common_type<duration<Rep1, Period1>, duration<Rep2, Period2>>::type common_duration_t;
-		return common_duration_t(common_duration_t(lhs).count() / common_duration_t(rhs).count());
+		return common_duration_t(lhs).count() / common_duration_t(rhs).count();
 	}
 
 	template <typename Rep1, typename Period1, typename Rep2>
-	duration<typename eastl::common_type<Rep1, Rep2>::type, Period1> EASTL_FORCE_INLINE
+		duration<
+		typename eastl::common_type<
+			Rep1,
+			typename eastl::enable_if<!Internal::IsDuration<Rep2>::value, Rep2>::type
+		>::type,
+		Period1> EASTL_FORCE_INLINE
 	operator%(const duration<Rep1, Period1>& lhs, const Rep2& rhs)
 	{
 		typedef duration<typename eastl::common_type<Rep1, Rep2>::type, Period1> common_duration_t;
@@ -547,19 +559,25 @@ namespace chrono
 	{
 		#if defined(EA_PLATFORM_MICROSOFT) && !defined(EA_PLATFORM_MINGW)
 			#define EASTL_NS_PER_TICK 1 
-		#elif defined EA_PLATFORM_SONY
+		#elif defined(EA_PLATFORM_SONY)
 			#define EASTL_NS_PER_TICK 1
-		#elif defined EA_PLATFORM_POSIX
+		#elif defined(EA_PLATFORM_POSIX)
 			#define EASTL_NS_PER_TICK _XTIME_NSECS_PER_TICK
 		#else
 			#define EASTL_NS_PER_TICK 100
+		#endif
+
+		#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+			#define EASTL_NS_PER_SYSTEM_TICK 100
+		#else
+			#define EASTL_NS_PER_SYSTEM_TICK EASTL_NS_PER_TICK
 		#endif
 
 		#if defined(EA_PLATFORM_POSIX) 
 			typedef chrono::nanoseconds::period SystemClock_Period;
 			typedef chrono::nanoseconds::period SteadyClock_Period;
 		#else
-			typedef eastl::ratio_multiply<eastl::ratio<EASTL_NS_PER_TICK, 1>, nano>::type SystemClock_Period; 
+			typedef eastl::ratio_multiply<eastl::ratio<EASTL_NS_PER_SYSTEM_TICK, 1>, nano>::type SystemClock_Period; 
 			typedef eastl::ratio_multiply<eastl::ratio<EASTL_NS_PER_TICK, 1>, nano>::type SteadyClock_Period; 
 		#endif
 
@@ -569,26 +587,37 @@ namespace chrono
 		///////////////////////////////////////////////////////////////////////////////
 		inline uint64_t GetTicks()
 		{
-		#if defined EA_PLATFORM_MICROSOFT
+		#if defined(EA_PLATFORM_MICROSOFT)
 			auto queryFrequency = []
 			{
 				LARGE_INTEGER frequency;
-				QueryPerformanceFrequency(&frequency);
+				#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+					KeQueryPerformanceCounter(&frequency);
+				#else
+					QueryPerformanceFrequency(&frequency);
+				#endif
 				return double(1000000000.0L / (long double)frequency.QuadPart);  // nanoseconds per tick
 			};
 
 			auto queryCounter = []
 			{
 				LARGE_INTEGER counter;
-				QueryPerformanceCounter(&counter);
+				#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+					counter = KeQueryPerformanceCounter(nullptr);
+				#else
+					QueryPerformanceCounter(&counter);
+				#endif
 				return counter.QuadPart;
 			};
 
 			EA_DISABLE_VC_WARNING(4640)  // warning C4640: construction of local static object is not thread-safe (VS2013)
 			static auto frequency = queryFrequency(); // cache cpu frequency on first call
 			EA_RESTORE_VC_WARNING()
-			return uint64_t(frequency * (double)queryCounter());
-		#elif defined EA_PLATFORM_SONY
+
+			const uint64_t ticks = queryCounter();
+
+			return uint64_t((long double)ticks * (long double)frequency);
+		#elif defined(EA_PLATFORM_SONY)
 			auto queryFrequency = []
 			{
 				// nanoseconds/seconds / ticks/seconds
@@ -637,6 +666,22 @@ namespace chrono
 			#error "chrono not implemented for platform"
 		#endif
 		}
+
+		inline uint64_t GetSystemTicks()
+		{
+		#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+			LARGE_INTEGER systemTime;
+			#if (NTDDI_VERSION >= 0x06020000) // NTDDI_WIN8
+				KeQuerySystemTimePrecise(&systemTime);
+			#else
+				KeQuerySystemTime(&systemTime);
+			#endif
+			return systemTime.QuadPart;
+		#else
+			return GetTicks();
+		#endif
+		}
+
 	} // namespace Internal
 
 
@@ -657,7 +702,7 @@ namespace chrono
 		// returns a time point representing the current point in time.
 		static time_point now() EA_NOEXCEPT 
 		{ 
-			return time_point(duration(Internal::GetTicks())); 
+			return time_point(duration(Internal::GetSystemTicks())); 
 		}
 	};
 
@@ -687,7 +732,13 @@ namespace chrono
 	///////////////////////////////////////////////////////////////////////////////
 	// high_resolution_clock 
 	///////////////////////////////////////////////////////////////////////////////
-	typedef system_clock high_resolution_clock;
+	#if defined(EA_PLATFORM_WINDOWS_KERNEL)
+		// Kernel ticks are less expensive to query precisely compared to system time
+		// on Windows kernel
+		typedef steady_clock high_resolution_clock;
+	#else
+		typedef system_clock high_resolution_clock;
+	#endif
 
 
 } // namespace chrono 
